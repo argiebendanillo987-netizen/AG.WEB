@@ -45,8 +45,8 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
-<script>
+<script type="module">
+import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 const FILTERS = ["CYBER_NEON", "SEPIA", "NEGATIVE", "THERMAL", "PIXELATE", "SKETCH"];
 const CSS_FILTER = {
   CYBER_NEON: "hue-rotate(180deg) saturate(3) contrast(1.4) brightness(1.1)",
@@ -186,7 +186,7 @@ function render() {
 }
 
 // ---------- camera + MediaPipe ----------
-let mpHands, running = false;
+let landmarker = null, running = false, lastTime = -1;
 async function startCamera() {
   if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -197,12 +197,28 @@ async function startCamera() {
   W = canvas.width = video.videoWidth; H = canvas.height = video.videoHeight;
 }
 
-async function loop() {
+function loop() {
   if (video.readyState >= 2) {
-    try { await mpHands.send({ image: video }); } catch (e) { console.error(e); }
+    if (video.currentTime !== lastTime) {
+      lastTime = video.currentTime;
+      try { hands = landmarker.detectForVideo(video, performance.now()).landmarks || []; }
+      catch (e) { console.error(e); }
+    }
     render();
   }
   requestAnimationFrame(loop);
+}
+
+async function makeLandmarker() {
+  const fileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const modelAssetPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+  const opts = { runningMode: "VIDEO", numHands: 2, minHandDetectionConfidence: 0.6, minTrackingConfidence: 0.6 };
+  try {
+    return await HandLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath, delegate: "GPU" }, ...opts });
+  } catch (e) {
+    console.warn("GPU failed, using CPU", e);
+    return await HandLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath, delegate: "CPU" }, ...opts });
+  }
 }
 
 $("go").onclick = async () => {
@@ -212,10 +228,7 @@ $("go").onclick = async () => {
     st.textContent = "Starting camera…";
     await startCamera();
     st.textContent = "Loading hand model…";
-    mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
-    mpHands.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
-    mpHands.onResults(r => { hands = r.multiHandLandmarks || []; });
-    await mpHands.initialize();
+    if (!landmarker) landmarker = await makeLandmarker();
     $("start").hidden = true; $("bar").hidden = false;
     if (!running) { running = true; loop(); }
   } catch (e) { st.textContent = "Error: " + e.message; }
