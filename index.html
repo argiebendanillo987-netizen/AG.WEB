@@ -2,115 +2,227 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Argie D. Bendanillo | Links</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Hand Portal Filter</title>
 <style>
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-body {
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-    color: #ffffff;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 2rem 1rem;
-}
-
-.container {
-    max-width: 680px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.profile-img {
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 1rem;
-    border: 3px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-}
-
-.username {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin-bottom: 0.25rem;
-    letter-spacing: 0.5px;
-}
-
-.subtitle {
-    font-size: 0.9rem;
-    color: #b3c5d1;
-    margin-bottom: 2rem;
-    text-align: center;
-}
-
-.link-container {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.link-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 1rem;
-    text-align: center;
-    background-color: rgba(19, 2, 128, 0.1);
-    color: white;
-    text-decoration: none;
-    border-radius: 30px;
-    font-weight: 600;
-    font-size: 1rem;
-    border: 1px solid rgba(12, 4, 91, 0.2);
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-}
-
-.link-btn:hover {
-    background-color: #ffffff;
-    color: #0f2027;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
-}
-
-footer {
-    margin-top: 3rem;
-    font-size: 0.85rem;
-    opacity: 0.7;
-    letter-spacing: 1px;
-}
+  :root { --g: #00ff50; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: #0b0b0b; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+  #stage { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+  canvas { max-width: 100%; max-height: 100%; background: #000; }
+  video { display: none; }
+  #start {
+    position: absolute; inset: 0; display: grid; place-content: center; gap: 14px; text-align: center;
+    background: rgba(10,10,10,.92); padding: 24px; z-index: 5;
+  }
+  #start h1 { font-size: 1.4rem; color: var(--g); letter-spacing: .08em; }
+  #start p { font-size: .85rem; color: #aaa; max-width: 34ch; line-height: 1.5; }
+  button {
+    font: inherit; color: #fff; padding: 12px 22px; border-radius: 14px; cursor: pointer;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); backdrop-filter: blur(10px);
+  }
+  #bar { position: absolute; bottom: 12px; display: flex; gap: 8px; z-index: 4; }
+  #bar button { padding: 8px 16px; font-size: .85rem; }
 </style>
 </head>
 <body>
-
-<div class="container">
-    <!-- Updated the image source to 22138.jpg -->
-    <img src="22139.jpeg" alt="Argie D. Bendanillo" class="profile-img">
-    
-    <h1 class="username">Argie D. Bendanillo</h1>
-    <p class="subtitle">argiebendanillo987@gmail.com</p>
-
-    <div class="link-container">
-        <a href="https://www.facebook.com/share/17JYkZGj7b/" target="_blank" class="link-btn">Facebook</a>
-        <a href="https://www.instagram.com/its.gie_23?psln=MXUyZDVvejIwZzYzbg==" target="_blank" class="link-btn">Instagram</a>
-        <a href="#" class="link-btn">TikTok</a>
-        <a href="#" class="link-btn">Portfolio / Website</a>
-    </div>
-
-    <footer>ARGIE BENDANILLO</footer>
+<div id="stage">
+  <video id="v" playsinline muted></video>
+  <canvas id="c"></canvas>
+  <div id="bar" hidden>
+    <button id="next">Next filter</button>
+    <button id="reset">Reset</button>
+    <button id="flip">Flip camera</button>
+  </div>
+  <div id="start">
+    <h1>HAND PORTAL FILTER</h1>
+    <p><b>2 hands</b> = portal between your thumbs &amp; index fingers.<br>
+       <b>1 hand pinch</b> = next filter.<br>
+       <b>Peace + other hand pinch</b>, release = sling.<br>
+       <b>Open palm (hold)</b> = reset.</p>
+    <button id="go">Start camera</button>
+    <p id="status"></p>
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script>
+const FILTERS = ["CYBER_NEON", "SEPIA", "NEGATIVE", "THERMAL", "PIXELATE", "SKETCH"];
+const CSS_FILTER = {
+  CYBER_NEON: "hue-rotate(180deg) saturate(3) contrast(1.4) brightness(1.1)",
+  SEPIA:      "sepia(1) contrast(1.1)",
+  NEGATIVE:   "invert(1)",
+  THERMAL:    "grayscale(1) contrast(1.6) sepia(1) hue-rotate(-40deg) saturate(6)",
+  SKETCH:     "grayscale(1) contrast(4) brightness(1.3)",
+};
+const PINCH_DIST = 0.07, PINCH_COOLDOWN = 800, PALM_HOLD = 600, SLING_FULL = 1000, SLING_SHOW = 2000;
+
+const $ = id => document.getElementById(id);
+const video = $("v"), canvas = $("c"), ctx = canvas.getContext("2d");
+const tiny = document.createElement("canvas"), tctx = tiny.getContext("2d");
+
+let W = 640, H = 480, facing = "user";
+let fi = 0, lastPinch = 0, palmStart = 0, slingStart = 0, slingUntil = 0, slingFilter = null;
+let msg = "", msgUntil = 0, hands = [];
+
+const say = (t, ms = 1500) => { msg = t; msgUntil = performance.now() + ms; };
+const nextFilter = () => { fi = (fi + 1) % FILTERS.length; say("FILTER: " + FILTERS[fi]); };
+const resetAll = () => { fi = 0; slingUntil = 0; slingStart = 0; say("RESET! ALL FILTERS BACK TO NORMAL", 2000); };
+
+// ---------- filters ----------
+function drawFiltered(name) {
+  if (name === "PIXELATE") {
+    tiny.width = Math.max(W / 24 | 0, 1); tiny.height = Math.max(H / 24 | 0, 1);
+    tctx.drawImage(video, 0, 0, tiny.width, tiny.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tiny, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+  } else {
+    ctx.filter = CSS_FILTER[name];
+    ctx.drawImage(video, 0, 0, W, H);
+    ctx.filter = "none";
+  }
+}
+
+// ---------- gesture helpers (landmarks are in 0..1, unmirrored) ----------
+const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const isPinch = h => d(h[4], h[8]) < PINCH_DIST;
+const up = (h, tip, pip) => d(h[tip], h[0]) > d(h[pip], h[0]) * 1.1;
+const fingers = h => [up(h, 8, 6), up(h, 12, 10), up(h, 16, 14), up(h, 20, 18)];
+const isPeace = h => { const [i, m, r, p] = fingers(h); return i && m && !r && !p; };
+const isPalm = h => fingers(h).every(Boolean) && d(h[4], h[17]) > d(h[3], h[17]);
+const P = p => [(1 - p.x) * W, p.y * H];            // mirror to screen coords
+
+function hull(points) {                              // sort around centroid -> simple polygon
+  const cx = points.reduce((s, p) => s + p[0], 0) / points.length;
+  const cy = points.reduce((s, p) => s + p[1], 0) / points.length;
+  return points.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+}
+
+// ---------- drawing helpers ----------
+function label(text, x, y, size = 16, color = "#00ff50") {
+  ctx.font = `600 ${size}px system-ui, sans-serif`;
+  ctx.lineWidth = 4; ctx.strokeStyle = "#000"; ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+function banner(text) {
+  ctx.font = "700 20px system-ui, sans-serif";
+  const w = ctx.measureText(text).width, x = (W - w) / 2, y = 70;
+  ctx.fillStyle = "#000"; ctx.fillRect(x - 14, y - 26, w + 28, 38);
+  ctx.strokeStyle = "#00ff50"; ctx.lineWidth = 2; ctx.strokeRect(x - 14, y - 26, w + 28, 38);
+  ctx.fillStyle = "#00ff50"; ctx.fillText(text, x, y);
+}
+
+// ---------- main render ----------
+function render() {
+  const now = performance.now();
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // mirrored base video
+  ctx.translate(W, 0); ctx.scale(-1, 1);
+  if (now < slingUntil && slingFilter) drawFiltered(slingFilter); else { ctx.filter = "none"; ctx.drawImage(video, 0, 0, W, H); }
+
+  // palm reset
+  if (hands.length === 1 && isPalm(hands[0])) {
+    if (!palmStart) palmStart = now;
+    const prog = Math.min((now - palmStart) / PALM_HOLD, 1);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#00ff50"; ctx.fillRect(20, H - 50, 200 * prog, 10);
+    if (prog >= 1) { resetAll(); palmStart = 0; }
+  } else palmStart = 0;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // sling: one hand peace + the other pinch
+  let sling = false;
+  if (hands.length === 2) {
+    const peace = hands.find(isPeace), pinch = hands.find(h => h !== peace && isPinch(h));
+    if (peace && pinch) {
+      sling = true;
+      if (!slingStart) slingStart = now;
+      const prog = Math.min((now - slingStart) / SLING_FULL, 1);
+      const a = P(peace[8]), b = P(peace[12]), c = P(pinch[8]);
+      ctx.strokeStyle = "#00ff50"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...c); ctx.moveTo(...b); ctx.lineTo(...c); ctx.stroke();
+      ctx.strokeRect(c[0] - 60, c[1] - 50, 120, 10);
+      ctx.fillStyle = "#00ff50"; ctx.fillRect(c[0] - 60, c[1] - 50, 120 * prog, 10);
+      label(`SLING ${Math.round(prog * 100)}% -> ${FILTERS[fi]}`, c[0] - 70, c[1] - 58, 13);
+      label("Release the pinch to FIRE!", W / 2 - 100, H - 40, 16);
+    }
+  }
+  if (!sling && slingStart) {
+    if (now - slingStart >= SLING_FULL * 0.4) { slingFilter = FILTERS[fi]; slingUntil = now + SLING_SHOW; say("FIRED: " + slingFilter); }
+    slingStart = 0;
+  }
+
+  // portal: two hands, not slinging
+  if (!sling && hands.length === 2) {
+    const pts = hull(hands.flatMap(h => [P(h[4]), P(h[8])]));
+    ctx.save();
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath();
+    ctx.clip();
+    ctx.translate(W, 0); ctx.scale(-1, 1);
+    drawFiltered(FILTERS[fi]);
+    ctx.restore();
+    ctx.strokeStyle = "#00ff50"; ctx.lineWidth = 2;
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = "#00ff50"; pts.forEach(p => { ctx.beginPath(); ctx.arc(p[0], p[1], 5, 0, 7); ctx.fill(); });
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    label("PORTAL: " + FILTERS[fi], cx - 60, cy, 14);
+  }
+
+  // single-hand pinch => next filter
+  if (hands.length === 1 && isPinch(hands[0]) && now - lastPinch > PINCH_COOLDOWN) { nextFilter(); lastPinch = now; }
+
+  // landmarks
+  ctx.fillStyle = "#fff";
+  hands.forEach(h => h.forEach(p => { const [x, y] = P(p); ctx.fillRect(x - 1.5, y - 1.5, 3, 3); }));
+
+  // HUD
+  label("HAND PORTAL FILTER", 10, 22, 13);
+  label("Filter: " + FILTERS[fi], 10, 40, 13);
+  if (now < msgUntil) banner(msg);
+  ctx.restore();
+}
+
+// ---------- camera + MediaPipe ----------
+let mpHands, running = false;
+async function startCamera() {
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+  });
+  video.srcObject = stream;
+  await video.play();
+  W = canvas.width = video.videoWidth; H = canvas.height = video.videoHeight;
+}
+
+async function loop() {
+  if (video.readyState >= 2) {
+    try { await mpHands.send({ image: video }); } catch (e) { console.error(e); }
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+
+$("go").onclick = async () => {
+  const st = $("status");
+  try {
+    if (!navigator.mediaDevices) throw new Error("Camera needs https:// or localhost. Open this page through Acode's preview / a local server.");
+    st.textContent = "Starting camera…";
+    await startCamera();
+    st.textContent = "Loading hand model…";
+    mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
+    mpHands.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+    mpHands.onResults(r => { hands = r.multiHandLandmarks || []; });
+    await mpHands.initialize();
+    $("start").hidden = true; $("bar").hidden = false;
+    if (!running) { running = true; loop(); }
+  } catch (e) { st.textContent = "Error: " + e.message; }
+};
+$("next").onclick = nextFilter;
+$("reset").onclick = resetAll;
+$("flip").onclick = async () => { facing = facing === "user" ? "environment" : "user"; await startCamera(); };
+</script>
 </body>
 </html>
